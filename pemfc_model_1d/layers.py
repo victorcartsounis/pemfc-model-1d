@@ -15,6 +15,7 @@ from pemfc_model_1d import properties as pr
 VARIABLES = {
     "phi_e": ("j_e", 1.0, 1e4),
     "phi_p": ("j_p", 1.0, 1e4),
+    "T": ("j_T", 100.0, 1e4),
     "lam": ("j_lam", 10.0, 0.1),
     "x_H2O": ("j_H2O", 1.0, 0.1),
     "x_H2": ("j_H2", 1.0, 0.1),
@@ -31,11 +32,11 @@ class Layer:
 
 
 LAYERS = (
-    Layer("AGDL", "GDL", "A", ("phi_e", "x_H2O", "x_H2")),
-    Layer("ACL", "CL", "A", ("phi_e", "phi_p", "lam", "x_H2O", "x_H2")),
-    Layer("PEM", "PEM", "", ("phi_p", "lam")),
-    Layer("CCL", "CL", "C", ("phi_e", "phi_p", "lam", "x_H2O", "x_O2")),
-    Layer("CGDL", "GDL", "C", ("phi_e", "x_H2O", "x_O2")),
+    Layer("AGDL", "GDL", "A", ("phi_e", "T", "x_H2O", "x_H2")),
+    Layer("ACL", "CL", "A", ("phi_e", "phi_p", "T", "lam", "x_H2O", "x_H2")),
+    Layer("PEM", "PEM", "", ("phi_p", "T", "lam")),
+    Layer("CCL", "CL", "C", ("phi_e", "phi_p", "T", "lam", "x_H2O", "x_O2")),
+    Layer("CGDL", "GDL", "C", ("phi_e", "T", "x_H2O", "x_O2")),
 )
 
 
@@ -83,7 +84,8 @@ def _gradient(flux, law):
 
 
 def _reaction_rate(layer, p, u):
-    """Volumetric current density of the half-reaction in a catalyst layer."""
+    """Volumetric current density of the half-reaction in a catalyst layer,
+    and its activation overpotential."""
     T = u["T"]
     P = gas_pressure(p, layer.side)
     if layer.side == "A":
@@ -98,7 +100,7 @@ def _reaction_rate(layer, p, u):
     dphi0 = pr.reversible_potential(p, layer.side, T, x_hat * P)
     eta = dphi - dphi0 if layer.side == "A" else dphi0 - dphi
     i0a = pr.volumetric_exchange_current(p, layer.side, T, x_hat * P)
-    return x / x_hat * pr.butler_volmer(p, i0a, eta, T)
+    return x / x_hat * pr.butler_volmer(p, i0a, eta, T), eta
 
 
 def equations(layer, p, u, j):
@@ -112,20 +114,24 @@ def equations(layer, p, u, j):
     gradient = {}
     source = dict.fromkeys(layer.variables, 0)
 
-    if "phi_e" in layer.variables:
+    # Flux laws
+    k = getattr(p, f"k_{layer.kind}")
+    gradient["T"] = _gradient(j["T"], lambda g: -k * g)
+
+    if layer.kind != "PEM":  # electron conducting
         sigma_e = getattr(p, f"sigma_e_{layer.kind}")
         gradient["phi_e"] = _gradient(j["phi_e"], lambda g: -sigma_e * g)
-    if "phi_p" in layer.variables:
+
+    if layer.kind != "GDL":  # ionomer
         lam = u["lam"]
         eps_i = getattr(p, f"eps_i_{layer.kind}")
         sigma_p = pr.proton_conductivity(p, lam, T, eps_i)
         gradient["phi_p"] = _gradient(j["phi_p"], lambda g: -sigma_p * g)
-    if "lam" in layer.variables:
         D_lam = pr.ionomer_water_diffusivity(p, lam, T, eps_i)
         drag = pr.drag_coefficient(lam) / p.F * j["phi_p"]
         gradient["lam"] = _gradient(j["lam"], lambda g: -D_lam / p.V_m * g + drag)
 
-    if layer.side:
+    if layer.side:  # gas filled pores
         P = gas_pressure(p, layer.side)
         C = P / (p.R * T)
         eps_p = getattr(p, f"eps_p_{layer.kind}")
@@ -141,22 +147,30 @@ def equations(layer, p, u, j):
                 D = pr.gas_diffusivity(p, D_ref[x], T, P, eps_p, tau, s)
                 gradient[x] = _gradient(j[x], lambda g, D=D: -C * D * g)
 
+    # Sources
+    for phi in ("phi_e", "phi_p"):  # Joule heating
+        if phi in layer.variables:
+            source["T"] -= j[phi] * gradient[phi]
+
     if layer.kind == "CL":
-        i = _reaction_rate(layer, p, u)
+        i, eta = _reaction_rate(layer, p, u)
         S_F = i / (2 * p.F)
         sign = 1 if layer.side == "C" else -1
         source["phi_e"] = sign * i
         source["phi_p"] = -sign * i
+        dS = p.dS_HOR if layer.side == "A" else p.dS_ORR
+        source["T"] += i * eta - S_F * T * dS
         if layer.side == "A":
             source["x_H2"] = -S_F
         else:
             source["x_O2"] = -S_F / 2
             source["lam"] = S_F  # product water appears dissolved in the ionomer
 
-        x_sat = pr.saturation_pressure(T) / gas_pressure(p, layer.side)
+        x_sat = pr.saturation_pressure(T) / P
         lam_eq = pr.equilibrium_water_content(u["x_H2O"] / x_sat)
-        S_ad = pr.sorption_rate(p, u["lam"], lam_eq, T)
+        S_ad = pr.sorption_rate(p, lam, lam_eq, T)
         source["lam"] += S_ad
         source["x_H2O"] -= S_ad
+        source["T"] += p.H_ad * S_ad
 
     return {v: (gradient[v], source[v]) for v in layer.variables}

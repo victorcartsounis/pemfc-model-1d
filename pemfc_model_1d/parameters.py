@@ -37,6 +37,7 @@ class Parameters:
     a_a: float = 3.53e-5  # m/s, absorption mass-transfer prefactor
     a_d: float = 1.42e-4  # m/s, desorption mass-transfer prefactor
     E_sorption: float = 20e3  # J/mol
+    H_ad: float = 42e3  # J/mol, enthalpy of desorption
 
     # Layer thicknesses
     L_GDL: float = 160e-6  # m
@@ -48,6 +49,9 @@ class Parameters:
     eps_i_PEM: float = 1.0
     sigma_e_GDL: float = 1250.0  # S/m
     sigma_e_CL: float = 350.0  # S/m
+    k_GDL: float = 1.6  # W/(m K), thermal conductivity
+    k_CL: float = 0.27
+    k_PEM: float = 0.3
     eps_p_GDL: float = 0.76  # pore volume fraction
     eps_p_CL: float = 0.4
     tau_GDL: float = 1.6  # pore tortuosity
