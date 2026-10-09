@@ -42,7 +42,7 @@ def solve(
     voltages,
     params=None,
     *,
-    tol=1e-4,
+    tol=1e-3,
     max_nodes=5000,
     initial_nodes=20,
     max_step=0.1,

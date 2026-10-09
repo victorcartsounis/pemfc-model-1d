@@ -80,8 +80,12 @@ _GRADIENT = sp.Symbol("gradient")
 
 
 def _gradient(flux, law):
-    """Solve the flux law `flux = law(gradient)` for the gradient."""
-    return sp.solve(sp.Eq(flux, law(_GRADIENT)), _GRADIENT)[0]
+    """Solve the flux law `flux = law(gradient)`, which is linear in the
+    gradient, for the gradient."""
+    expr = law(_GRADIENT)
+    slope = sp.diff(expr, _GRADIENT)
+    assert not slope.has(_GRADIENT), "flux law is not linear in the gradient"
+    return (flux - expr.subs(_GRADIENT, 0)) / slope
 
 
 def _reaction_rate(layer, p, u):
