@@ -8,6 +8,11 @@ def smooth_max0(z, width):
     return (z + sp.sqrt(z**2 + width**2)) / 2
 
 
+def smooth_step(z, width):
+    """0 for z < 0 and 1 for z > 0, blended over `width` around z = 0."""
+    return (1 + z / sp.sqrt(z**2 + width**2)) / 2
+
+
 def arrhenius(p, activation_energy, T):
     return sp.exp(activation_energy / p.R * (1 / p.T_ref - 1 / T))
 
@@ -30,6 +35,28 @@ def proton_conductivity(p, lam, T, eps_i):
     f = water_volume_fraction(p, lam)
     percolation = smooth_max0(f - 0.06, 0.06 * p.smoothing) ** 1.5
     return eps_i**1.5 * p.sigma_p_ref * percolation * arrhenius(p, p.E_sigma_p, T)
+
+
+def ionomer_water_diffusivity(p, lam, T, eps_i):
+    """Diffusivity of dissolved water in the ionomer, in m^2/s."""
+    fit = (3.842 * lam**3 - 32.03 * lam**2 + 67.74 * lam) / (
+        lam**3 - 2.115 * lam**2 - 33.013 * lam + 103.37
+    )
+    return eps_i**1.5 * fit * 1e-10 * arrhenius(p, p.E_D_lam, T)
+
+
+def drag_coefficient(lam):
+    """Electro-osmotic drag coefficient (water molecules per proton)."""
+    return 2.5 * lam / 22
+
+
+def sorption_rate(p, lam, lam_eq, T):
+    """Water sorption into the ionomer of a catalyst layer, in mol/(m^3 s):
+    absorption below equilibrium, desorption above it."""
+    desorbing = smooth_step(lam / lam_eq - 1, p.smoothing)
+    prefactor = p.a_a + (p.a_d - p.a_a) * desorbing
+    k = prefactor * water_volume_fraction(p, lam) * arrhenius(p, p.E_sorption, T)
+    return k / (p.L_CL * p.V_m) * (lam_eq - lam)
 
 
 def gas_diffusivity(p, D_ref, T, P, eps_p, tau, s):

@@ -33,6 +33,10 @@ class Parameters:
     V_w: float = 18 / 0.978 * 1e-6  # m^3/mol, molar volume of liquid water
     sigma_p_ref: float = 116.0  # S/m
     E_sigma_p: float = 15e3  # J/mol
+    E_D_lam: float = 20e3  # J/mol, activation energy of water diffusion
+    a_a: float = 3.53e-5  # m/s, absorption mass-transfer prefactor
+    a_d: float = 1.42e-4  # m/s, desorption mass-transfer prefactor
+    E_sorption: float = 20e3  # J/mol
 
     # Layer thicknesses
     L_GDL: float = 160e-6  # m

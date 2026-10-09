@@ -15,6 +15,7 @@ from pemfc_model_1d import properties as pr
 VARIABLES = {
     "phi_e": ("j_e", 1.0, 1e4),
     "phi_p": ("j_p", 1.0, 1e4),
+    "lam": ("j_lam", 10.0, 0.1),
     "x_H2O": ("j_H2O", 1.0, 0.1),
     "x_H2": ("j_H2", 1.0, 0.1),
     "x_O2": ("j_O2", 1.0, 0.1),
@@ -31,9 +32,9 @@ class Layer:
 
 LAYERS = (
     Layer("AGDL", "GDL", "A", ("phi_e", "x_H2O", "x_H2")),
-    Layer("ACL", "CL", "A", ("phi_e", "phi_p", "x_H2O", "x_H2")),
-    Layer("PEM", "PEM", "", ("phi_p",)),
-    Layer("CCL", "CL", "C", ("phi_e", "phi_p", "x_H2O", "x_O2")),
+    Layer("ACL", "CL", "A", ("phi_e", "phi_p", "lam", "x_H2O", "x_H2")),
+    Layer("PEM", "PEM", "", ("phi_p", "lam")),
+    Layer("CCL", "CL", "C", ("phi_e", "phi_p", "lam", "x_H2O", "x_O2")),
     Layer("CGDL", "GDL", "C", ("phi_e", "x_H2O", "x_O2")),
 )
 
@@ -115,9 +116,14 @@ def equations(layer, p, u, j):
         sigma_e = getattr(p, f"sigma_e_{layer.kind}")
         gradient["phi_e"] = _gradient(j["phi_e"], lambda g: -sigma_e * g)
     if "phi_p" in layer.variables:
+        lam = u["lam"]
         eps_i = getattr(p, f"eps_i_{layer.kind}")
-        sigma_p = pr.proton_conductivity(p, u["lam"], T, eps_i)
+        sigma_p = pr.proton_conductivity(p, lam, T, eps_i)
         gradient["phi_p"] = _gradient(j["phi_p"], lambda g: -sigma_p * g)
+    if "lam" in layer.variables:
+        D_lam = pr.ionomer_water_diffusivity(p, lam, T, eps_i)
+        drag = pr.drag_coefficient(lam) / p.F * j["phi_p"]
+        gradient["lam"] = _gradient(j["lam"], lambda g: -D_lam / p.V_m * g + drag)
 
     if layer.side:
         P = gas_pressure(p, layer.side)
@@ -145,5 +151,12 @@ def equations(layer, p, u, j):
             source["x_H2"] = -S_F
         else:
             source["x_O2"] = -S_F / 2
+            source["lam"] = S_F  # product water appears dissolved in the ionomer
+
+        x_sat = pr.saturation_pressure(T) / gas_pressure(p, layer.side)
+        lam_eq = pr.equilibrium_water_content(u["x_H2O"] / x_sat)
+        S_ad = pr.sorption_rate(p, u["lam"], lam_eq, T)
+        source["lam"] += S_ad
+        source["x_H2O"] -= S_ad
 
     return {v: (gradient[v], source[v]) for v in layer.variables}
