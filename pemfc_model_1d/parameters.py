@@ -44,6 +44,16 @@ class Parameters:
     eps_i_PEM: float = 1.0
     sigma_e_GDL: float = 1250.0  # S/m
     sigma_e_CL: float = 350.0  # S/m
+    eps_p_GDL: float = 0.76  # pore volume fraction
+    eps_p_CL: float = 0.4
+    tau_GDL: float = 1.6  # pore tortuosity
+    tau_CL: float = 1.6
+
+    # Binary gas diffusivities at T_ref and P_ref
+    D_H2: float = 1.24e-4  # m^2/s, hydrogen in water vapour
+    D_O2: float = 0.28e-4  # m^2/s, oxygen in air
+    D_H2O_A: float = 1.24e-4  # m^2/s, water vapour in hydrogen
+    D_H2O_C: float = 0.36e-4  # m^2/s, water vapour in air
 
     # Operating conditions
     P_A: float = 1.5e5  # Pa

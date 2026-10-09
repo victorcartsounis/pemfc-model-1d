@@ -32,6 +32,11 @@ def proton_conductivity(p, lam, T, eps_i):
     return eps_i**1.5 * p.sigma_p_ref * percolation * arrhenius(p, p.E_sigma_p, T)
 
 
+def gas_diffusivity(p, D_ref, T, P, eps_p, tau, s):
+    """Effective diffusivity in a partially flooded porous layer."""
+    return eps_p / tau**2 * (1 - s) ** 3 * D_ref * (T / p.T_ref) ** 1.5 * p.P_ref / P
+
+
 def reversible_potential(p, side, T, partial_pressure):
     """Share of the reversible cell potential carried by one catalyst layer,
     given the partial pressure of its reactant (H2 or O2)."""
