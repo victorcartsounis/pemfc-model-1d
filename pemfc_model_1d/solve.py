@@ -108,11 +108,14 @@ def _predict(model, history, U, values, initial_nodes):
         x = np.linspace(0, 1, initial_nodes)
         y = np.repeat(model.initial_guess((U, *values))[:, None], x.size, axis=1)
         return x, y
+    # solve_bvp only ever adds nodes, so features that have moved on would keep
+    # their refinement; every other node is dropped and refined again if needed.
     U1, r1 = history[-1]
+    x = np.append(r1.x[:-1:2], 1.0)
     if len(history) == 1:
-        return r1.x, r1.y
+        return x, r1.sol(x)
     U0, r0 = history[0]
-    return r1.x, r1.y + (U - U1) / (U1 - U0) * (r1.y - r0.sol(r1.x))
+    return x, r1.sol(x) + (U - U1) / (U1 - U0) * (r1.sol(x) - r0.sol(x))
 
 
 def _operating_point(model, params, U, result):
