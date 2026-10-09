@@ -1,0 +1,28 @@
+[tool.poetry]
+name = "pemfc-model-1d"
+version = "0.1.0"
+description = "A 1D steady-state, non-isothermal, two-phase PEM fuel cell MEA model with symbolic Jacobians."
+authors = ["Victor Cartsounis <vicartsounis@gmail.com>"]
+readme = "README.md"
+packages = [{ include = "pemfc_model_1d" }]
+
+[tool.poetry.dependencies]
+python = "^3.12"
+numpy = ">=2.0"
+scipy = ">=1.14"
+sympy = ">=1.13"
+matplotlib = ">=3.9"
+
+[tool.poetry.group.dev.dependencies]
+ruff = ">=0.6"
+
+[tool.ruff]
+line-length = 88
+target-version = "py312"
+
+[tool.ruff.lint]
+select = ["E", "F", "W", "I", "B", "UP", "NPY"]
+
+[build-system]
+requires = ["poetry-core>=1.0.0"]
+build-backend = "poetry.core.masonry.api"

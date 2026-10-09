@@ -1,0 +1,7 @@
+PLAN.md
+references/
+__pycache__/
+.ruff_cache/
+.venv/
+results/
+poetry.toml
