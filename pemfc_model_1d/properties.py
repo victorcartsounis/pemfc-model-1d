@@ -22,6 +22,41 @@ def saturation_pressure(T):
     return sp.exp(23.1963 - 3816.44 / (T - 46.13))
 
 
+def water_viscosity(T):
+    """Dynamic viscosity of liquid water in Pa s (Vogel equation)."""
+    return 1e-3 * sp.exp(-3.63148 + 542.05 / (T - 144.15))
+
+
+def capillary_pressure(s):
+    """Capillary pressure in Pa as a function of the liquid saturation."""
+    return (
+        -0.00011 * sp.exp(-44.02 * (s - 0.496))
+        + 278.3 * sp.exp(8.103 * (s - 0.496))
+        - 191.8
+    )
+
+
+def reduced_saturation(p, s):
+    """Share of the pore space above the immobile saturation, which is taken as
+    s_C. Immobile water neither flows nor changes phase, so the reduced
+    saturation is never negative."""
+    return smooth_max0((s - p.s_C) / (1 - p.s_C), p.smoothing)
+
+
+def hydraulic_permeability(p, s, kappa_abs):
+    return (1e-6 + reduced_saturation(p, s) ** 3) * kappa_abs
+
+
+def phase_change_rate(p, s, x_H2O, x_sat, T, C):
+    """Condensation (positive) or evaporation (negative) in mol/(m^3 s)."""
+    hertz_knudsen = sp.sqrt(p.R * T / (2 * sp.pi * p.M_w))
+    s_red = reduced_saturation(p, s)
+    gamma_e = p.k_e_factor * hertz_knudsen * p.a_lg * s_red
+    gamma_c = p.k_c_factor * hertz_knudsen * p.a_lg * (1 - s_red)
+    condensing = smooth_step(x_H2O / x_sat - 1, p.smoothing)
+    return (gamma_e + (gamma_c - gamma_e) * condensing) * C * (x_H2O - x_sat)
+
+
 def equilibrium_water_content(RH):
     """Ionomer water content in equilibrium with vapour at relative humidity RH."""
     return 0.043 + 17.81 * RH - 39.85 * RH**2 + 36.0 * RH**3

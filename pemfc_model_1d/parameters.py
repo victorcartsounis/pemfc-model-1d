@@ -56,12 +56,20 @@ class Parameters:
     eps_p_CL: float = 0.4
     tau_GDL: float = 1.6  # pore tortuosity
     tau_CL: float = 1.6
+    kappa_GDL: float = 6.15e-12  # m^2, absolute permeability
+    kappa_CL: float = 1e-13
 
     # Binary gas diffusivities at T_ref and P_ref
     D_H2: float = 1.24e-4  # m^2/s, hydrogen in water vapour
     D_O2: float = 0.28e-4  # m^2/s, oxygen in air
     D_H2O_A: float = 1.24e-4  # m^2/s, water vapour in hydrogen
     D_H2O_C: float = 0.36e-4  # m^2/s, water vapour in air
+
+    # Liquid water and phase change
+    H_ec: float = 42e3  # J/mol, enthalpy of vaporisation
+    a_lg: float = 2e6  # m^2/m^3, liquid-gas interfacial area density
+    k_e_factor: float = 5e-4  # evaporation share of the Hertz-Knudsen flux
+    k_c_factor: float = 6e-3  # condensation share of the Hertz-Knudsen flux
 
     # Operating conditions
     P_A: float = 1.5e5  # Pa
@@ -76,7 +84,7 @@ class Parameters:
 
     # Width of the smooth replacement of every switch and max{0, .} in the
     # constitutive relations, relative to the scale of the switching quantity.
-    smoothing: float = 1e-3
+    smoothing: float = 1e-5
 
     @classmethod
     def symbols(cls) -> "Parameters":

@@ -20,6 +20,7 @@ VARIABLES = {
     "x_H2O": ("j_H2O", 1.0, 0.1),
     "x_H2": ("j_H2", 1.0, 0.1),
     "x_O2": ("j_O2", 1.0, 0.1),
+    "s": ("j_s", 0.1, 0.1),
 }
 
 
@@ -35,8 +36,8 @@ LAYERS = (
     Layer("AGDL", "GDL", "A", ("phi_e", "T", "x_H2O", "x_H2")),
     Layer("ACL", "CL", "A", ("phi_e", "phi_p", "T", "lam", "x_H2O", "x_H2")),
     Layer("PEM", "PEM", "", ("phi_p", "T", "lam")),
-    Layer("CCL", "CL", "C", ("phi_e", "phi_p", "T", "lam", "x_H2O", "x_O2")),
-    Layer("CGDL", "GDL", "C", ("phi_e", "T", "x_H2O", "x_O2")),
+    Layer("CCL", "CL", "C", ("phi_e", "phi_p", "T", "lam", "x_H2O", "x_O2", "s")),
+    Layer("CGDL", "GDL", "C", ("phi_e", "T", "x_H2O", "x_O2", "s")),
 )
 
 
@@ -147,6 +148,13 @@ def equations(layer, p, u, j):
                 D = pr.gas_diffusivity(p, D_ref[x], T, P, eps_p, tau, s)
                 gradient[x] = _gradient(j[x], lambda g, D=D: -C * D * g)
 
+    if "s" in layer.variables:  # liquid water in the cathode pores
+        kappa = pr.hydraulic_permeability(p, s, getattr(p, f"kappa_{layer.kind}"))
+        w = sp.Dummy()
+        dpc_ds = sp.diff(pr.capillary_pressure(w), w).subs(w, s)
+        mobility = kappa / (pr.water_viscosity(T) * p.V_w) * dpc_ds
+        gradient["s"] = _gradient(j["s"], lambda g: -mobility * g)
+
     # Sources
     for phi in ("phi_e", "phi_p"):  # Joule heating
         if phi in layer.variables:
@@ -172,5 +180,12 @@ def equations(layer, p, u, j):
         source["lam"] += S_ad
         source["x_H2O"] -= S_ad
         source["T"] += p.H_ad * S_ad
+
+    if "s" in layer.variables:
+        x_sat = pr.saturation_pressure(T) / P
+        S_ec = pr.phase_change_rate(p, s, u["x_H2O"], x_sat, T, C)
+        source["s"] += S_ec
+        source["x_H2O"] -= S_ec
+        source["T"] += p.H_ec * S_ec
 
     return {v: (gradient[v], source[v]) for v in layer.variables}
